@@ -1,0 +1,29 @@
+/* Normal timer styling */
+.timer-normal {
+  color: inherit;
+}
+
+/* Overtime timer styling with glowing red animation */
+.timer-overtime {
+  color: #ef4444; /* Red color (Tailwind's red-500) */
+  animation: glow-red 1.5s ease-in-out infinite alternate;
+}
+
+/* Glowing red animation with pulsing text shadow */
+@keyframes glow-red {
+  0% {
+    text-shadow: 
+      0 0 10px rgba(239, 68, 68, 0.7),
+      0 0 20px rgba(239, 68, 68, 0.5),
+      0 0 30px rgba(239, 68, 68, 0.3);
+    opacity: 1;
+  }
+  100% {
+    text-shadow: 
+      0 0 20px rgba(239, 68, 68, 1),
+      0 0 30px rgba(239, 68, 68, 0.8),
+      0 0 40px rgba(239, 68, 68, 0.6),
+      0 0 50px rgba(239, 68, 68, 0.4);
+    opacity: 0.9;
+  }
+}
