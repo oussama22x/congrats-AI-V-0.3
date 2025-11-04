@@ -6,8 +6,8 @@ import { AuditionCompleteScreen } from "@/components/AuditionCompleteScreen";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/use-toast";
 
-// Backend URL - now pointing to backend folder
-const BACKEND_URL = 'http://localhost:4000';
+// Backend URL - now using environment variable
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Question type with duration
 interface Question {
@@ -292,7 +292,7 @@ const Opportunities = () => {
       console.log('👤 User ID:', currentUser.id);
       console.log('🎯 Opportunity ID:', selectedOpportunity.id);
       
-      const response = await fetch('http://localhost:4000/api/audition/create-submission', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/audition/create-submission`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

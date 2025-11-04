@@ -17,8 +17,8 @@ import { format } from "date-fns";
 import { VettingChallengeCard } from "@/components/vetting/VettingChallengeCard";
 import { VettingChallengeDrawer } from "@/components/vetting/VettingChallengeDrawer";
 
-// Backend URL
-const BACKEND_URL = 'http://localhost:4000';
+// Backend URL - using environment variable
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 const TalentDashboard = () => {
   const {

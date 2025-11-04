@@ -8,8 +8,8 @@ import { ArrowLeft, Loader2, AlertCircle, Briefcase, MapPin, Calendar } from "lu
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { format } from "date-fns";
 
-// Backend URL
-const BACKEND_URL = 'http://localhost:4000';
+// Backend URL - using environment variable
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 interface Answer {
   id: string;

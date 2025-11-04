@@ -48,7 +48,7 @@ export const AuditionSurveyScreen = ({
       });
 
       // Send rating to backend
-      const response = await fetch('http://localhost:4000/api/audition/submit-survey', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/audition/submit-survey`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -206,7 +206,7 @@ export const AuditionQuestionScreen = ({
       console.log('📤 Uploading answer for question:', currentQuestion.id);
 
       // 4. Send to backend
-      const response = await fetch('http://localhost:4000/api/audition/submit-answer', {
+      const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/audition/submit-answer`, {
         method: 'POST',
         body: formData,
       });
