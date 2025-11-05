@@ -9,6 +9,12 @@ const speech = require('@google-cloud/speech');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const fs = require('fs');
 
+// Initialize node-fetch for dynamic import
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
+// Initialize Google API key for Speech-to-Text
+let googleApiKey = process.env.GOOGLE_API_KEY;
+
 // Initialize Gemini AI client
 let genAI = null;
 if (process.env.GEMINI_API_KEY) {
@@ -404,42 +410,77 @@ app.post('/api/audition/submit-answer', upload.single('audio_file'), async (req,
 
     const audio_url = publicUrl; // Store for clarity
 
-    // C. Transcribe Audio with Gemini AI (New URI Method)
-    let transcript = null; // Default to null in case of error
-    
-    if (genAI) {
-      console.log('🎤 Starting transcription with Gemini (URI method)...');
-      
+    // --- Start Transcription with Google Speech-to-Text ---
+    let transcript = "[Transcription disabled - API key not configured]";
+
+    if (googleApiKey) {
+      console.log("🎤 Transcribing audio with Google Speech-to-Text...");
+      const file = req.file; // Get the file from the request
+
       try {
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-        
-        // NEW: Use the file URI (Supabase URL) instead of the buffer
-        const audioFile = {
-          fileData: {
-            mimeType: file.mimetype, // e.g., 'audio/webm'
-            fileUri: audio_url         // The public URL from Supabase
+        if (file.size > 10 * 1024 * 1024) {
+          throw new Error("Audio file exceeds 10MB limit");
+        }
+
+        const audioBase64 = file.buffer.toString("base64");
+
+        let encoding = "MP3";
+        let sampleRateHertz = 48000;
+
+        if (file.mimetype.includes("webm")) {
+          encoding = "WEBM_OPUS";
+          sampleRateHertz = 48000;
+        } else if (file.mimetype.includes("wav")) {
+          encoding = "LINEAR16";
+          sampleRateHertz = 44100;
+        } else if (file.mimetype.includes("ogg")) {
+          encoding = "OGG_OPUS";
+          sampleRateHertz = 48000;
+        }
+
+        console.log(`🔧 Using encoding: ${encoding}, sample rate: ${sampleRateHertz}`);
+
+        const response = await fetch(
+          `https://speech.googleapis.com/v1/speech:recognize?key=${googleApiKey}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              config: {
+                encoding: encoding,
+                sampleRateHertz: sampleRateHertz,
+                audioChannelCount: 1,
+                languageCode: "en-US",
+                enableAutomaticPunctuation: true,
+                model: "default",
+                useEnhanced: true,
+              },
+              audio: { content: audioBase64 },
+            }),
           }
-        };
+        );
 
-        const prompt = "Transcribe this audio file. Return only the text.";
+        const data = await response.json();
+        console.log("📝 Google API response:", JSON.stringify(data, null, 2));
 
-        const result = await model.generateContent([prompt, audioFile]);
-        transcript = result.response.text();
-        console.log('✅ Transcription successful.');
-        console.log(`   Preview: "${transcript.substring(0, 100)}${transcript.length > 100 ? '...' : ''}"`);
+        if (data.error) {
+          throw new Error(data.error.message);
+        }
 
+        if (!data.results || data.results.length === 0) {
+          transcript = "[No speech detected in audio]";
+        } else {
+          transcript = data.results
+            .map((r) => r.alternatives[0].transcript)
+            .join(" ");
+          console.log(`✅ Transcription complete: "${transcript}"`);
+        }
       } catch (transcriptionError) {
-        console.error('--- GEMINI TRANSCRIPTION FAILED ---');
-        // Log the full, detailed error for debugging
-        console.error(JSON.stringify(transcriptionError, null, 2));
-        console.error('--- END OF ERROR ---');
-        // Soft fail - we will just save 'null'
-        transcript = null;
+        console.error("⚠️ Transcription failed:", transcriptionError);
+        transcript = `[Transcription failed: ${transcriptionError.message}]`;
       }
-    } else {
-      console.log('⏭️  Skipping transcription (Gemini API key not configured)');
-      transcript = null;
     }
+    // --- End Transcription ---
 
     // D. Save to Database (audition_answers table)
     console.log('💾 Saving answer to database...');

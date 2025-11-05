@@ -3,17 +3,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Volume2, FileText } from "lucide-react";
 
-interface AnswerCardProps {
+interface Answer {
+  id: string;
+  questionId: string;
   questionText: string;
   audioUrl: string;
-  transcript?: string | null;
+  transcript: string | null;
+  submittedAt: string;
+}
+
+interface AnswerCardProps {
+  answer: Answer;
   questionNumber?: number;
 }
 
 export const AnswerCard = ({ 
-  questionText, 
-  audioUrl,
-  transcript,
+  answer,
   questionNumber 
 }: AnswerCardProps) => {
   const [showTranscript, setShowTranscript] = useState(false);
@@ -25,14 +30,14 @@ export const AnswerCard = ({
           <Volume2 className="h-5 w-5 mt-1 text-primary flex-shrink-0" />
           <span>
             {questionNumber && <span className="font-bold text-primary">Q{questionNumber}: </span>}
-            {questionText}
+            {answer.questionText}
           </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <audio 
           controls 
-          src={audioUrl}
+          src={answer.audioUrl}
           className="w-full"
           preload="metadata"
         >
@@ -53,7 +58,7 @@ export const AnswerCard = ({
         {/* Transcript Display */}
         {showTranscript && (
           <blockquote className="border-l-4 border-primary pl-4 py-2 text-sm text-muted-foreground italic bg-muted/30 rounded-r">
-            {transcript || "Transcription is still processing or was not available."}
+            {answer.transcript || "Transcription is still processing or was not available."}
           </blockquote>
         )}
       </CardContent>

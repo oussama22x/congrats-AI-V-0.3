@@ -215,10 +215,8 @@ export const SubmissionDetailPage = () => {
             {submission.answers.map((answer, index) => (
               <AnswerCard
                 key={answer.id}
+                answer={answer}
                 questionNumber={index + 1}
-                questionText={answer.questionText}
-                audioUrl={answer.audioUrl}
-                transcript={answer.transcript}
               />
             ))}
           </div>
