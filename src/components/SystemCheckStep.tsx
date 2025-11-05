@@ -1,16 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Video, CheckCircle2, AlertCircle, ArrowLeft, Camera, Mic } from "lucide-react";
+import { Video, CheckCircle2, AlertCircle, ArrowLeft, Camera, Mic, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface SystemCheckStepProps {
   onStart: (cameraStream: MediaStream | null) => void;
   onClose: () => void;
   onBack: () => void;
+  isStarting?: boolean;
 }
 
-export const SystemCheckStep = ({ onStart, onClose, onBack }: SystemCheckStepProps) => {
+export const SystemCheckStep = ({ onStart, onClose, onBack, isStarting = false }: SystemCheckStepProps) => {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isMicReady, setIsMicReady] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
@@ -453,6 +454,7 @@ export const SystemCheckStep = ({ onStart, onClose, onBack }: SystemCheckStepPro
           size="lg"
           onClick={onBack}
           className="w-32"
+          disabled={isStarting}
         >
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
@@ -461,9 +463,18 @@ export const SystemCheckStep = ({ onStart, onClose, onBack }: SystemCheckStepPro
           size="lg"
           className="flex-1 text-lg h-14 font-semibold"
           onClick={handleStartAudition}
-          disabled={false}
+          disabled={isStarting}
         >
-          {(isCameraReady && isMicReady) ? "Start Audition" : "Continue Anyway (Testing Mode)"}
+          {isStarting ? (
+            <>
+              <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+              Starting Audition...
+            </>
+          ) : (isCameraReady && isMicReady) ? (
+            "Start Audition"
+          ) : (
+            "Continue Anyway (Testing Mode)"
+          )}
         </Button>
       </div>
       {(!isCameraReady || !isMicReady) && (

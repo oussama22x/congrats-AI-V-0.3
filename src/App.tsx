@@ -12,6 +12,7 @@ import TalentDashboard from "./pages/talent/TalentDashboard";
 import ProfileWizard from "./pages/talent/ProfileWizard";
 import ProfileEditor from "./pages/talent/ProfileEditor";
 import Opportunities from "./pages/talent/Opportunities";
+import DemoInterview from "./pages/talent/DemoInterview";
 import SubmissionDetailPage from "./pages/talent/SubmissionDetailPage";
 import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
 import PartnerDashboard from "./pages/partner/PartnerDashboard";
@@ -61,6 +62,14 @@ const App = () => (
             element={
               <RoleGuard allowedRoles={["TALENT"]}>
                 <Opportunities />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/audition/demo"
+            element={
+              <RoleGuard allowedRoles={["TALENT"]}>
+                <DemoInterview />
               </RoleGuard>
             }
           />

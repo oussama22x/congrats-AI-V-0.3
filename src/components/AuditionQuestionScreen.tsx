@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Mic, Square, Clock, Loader2 } from "lucide-react";
+import { Mic, Square, Clock, Loader2, Volume2 } from "lucide-react";
 import { useAudioRecorder } from "@/hooks/useAudioRecorder";
 import { useCountdownTimer } from "@/hooks/useCountdownTimer";
 import { useToast } from "@/hooks/use-toast";
@@ -37,6 +37,7 @@ export const AuditionQuestionScreen = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isOvertime, setIsOvertime] = useState(false); // NEW: Overtime warning state
+  const [shouldAutoUpload, setShouldAutoUpload] = useState(false); // NEW: Flag to trigger auto-upload
   const { toast } = useToast();
   
   // Audio recording hook
@@ -99,6 +100,7 @@ export const AuditionQuestionScreen = ({
   useEffect(() => {
     console.log(`🔄 Question changed to ${currentQuestionIndex + 1}, resetting overtime state`);
     setIsOvertime(false);
+    setShouldAutoUpload(false); // Reset auto-upload flag
     resetQuestionTimer();
     
     // Auto-start recording when question appears
@@ -107,22 +109,31 @@ export const AuditionQuestionScreen = ({
     startQuestionTimer();
   }, [currentQuestionIndex]);
 
+  // NEW: Auto-upload when recording is complete and shouldAutoUpload is true
+  useEffect(() => {
+    if (shouldAutoUpload && recordingStatus === "recorded" && audioBlob) {
+      console.log('✅ Recording complete, triggering auto-upload...');
+      setShouldAutoUpload(false); // Reset flag
+      handleUploadAndAdvance();
+    }
+  }, [shouldAutoUpload, recordingStatus, audioBlob]);
+
   // Auto-advance when question timer expires
   useEffect(() => {
-    if (isQuestionTimeUp) {
+    if (isQuestionTimeUp && !isUploading) {
       console.log('⏰ Time is up! Automatically submitting and advancing...');
       
-      // If currently recording, handleUploadAndAdvance will stop it and upload
+      // If currently recording, stop and upload automatically
       if (recordingStatus === "recording") {
-        console.log('📹 Still recording, uploading current answer...');
+        console.log('📹 Still recording, stopping and uploading...');
+        handleStopAndUpload();
+      }
+      // If user already stopped recording, upload the answer
+      else if (audioBlob) {
+        console.log('✅ Recording available, uploading answer...');
         handleUploadAndAdvance();
       }
-      // If user already recorded and stopped, upload the recorded answer
-      else if (recordingStatus === "recorded") {
-        console.log('✅ Already recorded, uploading answer...');
-        handleUploadAndAdvance();
-      }
-      // If user never started recording (idle), skip this question
+      // If user never started recording, skip this question
       else {
         console.log('⏭️ No recording detected, skipping to next question...');
         
@@ -160,26 +171,73 @@ export const AuditionQuestionScreen = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleStopRecording = () => {
-    stopRecording();
+  // Handle stopping the recording and automatically upload
+  const handleStopAndUpload = () => {
+    console.log('🛑 Stop button clicked - stopping recording and preparing for automatic upload...');
+    
+    // Stop the timer immediately
     stopQuestionTimer();
+    
+    // Immediately set uploading state to show loading UI
+    setIsUploading(true);
+    
+    // Set flag to trigger auto-upload when recording is complete
+    setShouldAutoUpload(true);
+    
+    // Stop recording - this will trigger the onstop event which sets audioBlob and changes status to "recorded"
+    stopRecording();
+  };
+
+  // Read question aloud using browser's Speech Synthesis API
+  const handleReadQuestion = (text: string) => {
+    try {
+      // Check if Speech Synthesis is supported
+      if (!window.speechSynthesis) {
+        toast({
+          title: "Not Supported",
+          description: "Text-to-speech is not supported in your browser.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+
+      // Create utterance
+      const utterance = new SpeechSynthesisUtterance(text);
+      
+      // Optional: Configure voice properties
+      utterance.rate = 0.9; // Slightly slower for clarity
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      // Speak the text
+      window.speechSynthesis.speak(utterance);
+
+      console.log('🔊 Reading question aloud:', text);
+    } catch (error) {
+      console.error('❌ Error reading question:', error);
+      toast({
+        title: "Error",
+        description: "Failed to read question aloud.",
+        variant: "destructive",
+      });
+    }
   };
 
   // NEW: Core upload and advance function
   const handleUploadAndAdvance = async () => {
     try {
+      console.log('📤 handleUploadAndAdvance called');
+      console.log('🎵 audioBlob:', audioBlob);
+      console.log('📊 recordingStatus:', recordingStatus);
+      
       setIsUploading(true);
 
-      // 1. Stop recording if still active
-      if (recordingStatus === "recording") {
-        stopRecording();
-        stopQuestionTimer();
-        // Wait a bit for blob to be ready
-        await new Promise(resolve => setTimeout(resolve, 500));
-      }
-
-      // 2. Check if we have audio blob
+      // 1. Check if we have audio blob
       if (!audioBlob) {
+        console.error('❌ No audio blob available!');
         toast({
           title: "No Recording",
           description: "Please record your answer before advancing.",
@@ -189,7 +247,9 @@ export const AuditionQuestionScreen = ({
         return;
       }
 
-      // 3. Create FormData
+      console.log('✅ Audio blob exists, size:', audioBlob.size);
+
+      // 2. Create FormData
       const formData = new FormData();
       formData.append('audio_file', audioBlob, `answer_${currentQuestion.id}.webm`);
       formData.append('userId', userId);
@@ -205,11 +265,13 @@ export const AuditionQuestionScreen = ({
 
       console.log('📤 Uploading answer for question:', currentQuestion.id);
 
-      // 4. Send to backend
+      // 3. Send to backend
       const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/audition/submit-answer`, {
         method: 'POST',
         body: formData,
       });
+
+      console.log('📡 Response status:', response.status);
 
       const result = await response.json();
 
@@ -226,6 +288,7 @@ export const AuditionQuestionScreen = ({
 
       // Advance to next question or complete
       if (currentQuestionIndex < questions.length - 1) {
+        console.log('➡️ Moving to next question...');
         setCurrentQuestionIndex(currentQuestionIndex + 1);
         resetRecording();
         resetQuestionTimer();
@@ -289,10 +352,21 @@ export const AuditionQuestionScreen = ({
 
           <CardContent className="space-y-8">
             {/* Question Text */}
-            <div className="bg-primary/5 border border-primary/20 rounded-lg p-8 text-center">
-              <h2 className="text-3xl font-bold leading-relaxed">
-                {questionText}
-              </h2>
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-8">
+              <div className="flex items-start justify-center gap-4">
+                <h2 className="text-3xl font-bold leading-relaxed text-center flex-1">
+                  {questionText}
+                </h2>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 shrink-0 hover:bg-primary/10"
+                  onClick={() => handleReadQuestion(questionText)}
+                  title="Read question aloud"
+                >
+                  <Volume2 className="h-5 w-5 text-primary" />
+                </Button>
+              </div>
             </div>
 
             {/* Per-Question Timer - Countdown with Overtime Glow */}
@@ -315,64 +389,72 @@ export const AuditionQuestionScreen = ({
 
             {/* Recording Controls */}
             <div className="space-y-4">
-              {recordingStatus === "recording" && (
+              {/* Red Stop Button - Only visible when recording and NOT uploading */}
+              {recordingStatus === "recording" && !isUploading && (
                 <>
                   <div className="flex justify-center">
                     <Button
                       size="lg"
                       variant="destructive"
                       className="h-24 w-24 rounded-full animate-pulse"
-                      onClick={handleStopRecording}
+                      onClick={handleStopAndUpload}
                       disabled={isUploading}
                     >
                       <Square className="h-12 w-12 fill-current" />
                     </Button>
                   </div>
                   <p className="text-center text-sm text-muted-foreground">
-                    Recording in progress... Click to stop
+                    Recording in progress... Click to stop and submit
                   </p>
-                </>
-              )}
-
-              {recordingStatus === "recorded" && (
-                <>
-                  <div className="flex justify-center">
-                    <p className="text-center text-lg text-success font-medium">
-                      ✓ Answer recorded successfully
-                    </p>
-                  </div>
                 </>
               )}
             </div>
 
-            {/* Submit Button */}
+            {/* Loading and Helper Text Section */}
             <div className="pt-4">
-              <Button
-                size="lg"
-                className="w-full h-14 text-lg font-semibold"
-                onClick={handleUploadAndAdvance}
-                disabled={recordingStatus !== "recorded" || isUploading}
-              >
-                {isUploading ? (
-                  <>
+
+              {/* Loading state during upload */}
+              {isUploading && (
+                <>
+                  <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
+                    <div className="flex items-center justify-center gap-3 mb-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                      <span className="font-semibold text-primary">Uploading your answer...</span>
+                    </div>
+                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                      <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '70%' }} />
+                    </div>
+                    <p className="text-xs text-center text-muted-foreground mt-2">
+                      Moving to next question...
+                    </p>
+                  </div>
+                  <Button
+                    size="lg"
+                    className="w-full h-14 text-lg font-semibold"
+                    disabled={true}
+                  >
                     <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : currentQuestionIndex < questions.length - 1 ? (
-                  "End Recording & Move to Next Question"
-                ) : (
-                  "Submit Final Answer & Complete"
-                )}
-              </Button>
-              <p className="text-xs text-muted-foreground text-center mt-3">
-                {recordingStatus !== "recorded" 
-                  ? "Record your answer to continue"
-                  : currentQuestionIndex < questions.length - 1
+                    Uploading... Please wait...
+                  </Button>
+                </>
+              )}
+
+              {/* Helper text */}
+              {!isUploading && recordingStatus === "recording" && (
+                <p className="text-xs text-muted-foreground text-center mt-3">
+                  {currentQuestionIndex < questions.length - 1
                     ? `${questions.length - currentQuestionIndex - 1} question${
                         questions.length - currentQuestionIndex - 1 !== 1 ? "s" : ""
                       } remaining`
                     : "This is your final question"}
-              </p>
+                </p>
+              )}
+              
+              {!isUploading && (
+                <p className="text-xs text-amber-600 dark:text-amber-400 text-center mt-2 font-medium">
+                  ⚠️ You cannot pause. You can only stop and move on to the next question.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

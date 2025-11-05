@@ -11,9 +11,10 @@ interface AuditionStartModalProps {
   };
   onClose: () => void;
   onStart: (cameraStream: MediaStream | null) => void;
+  isStarting?: boolean;
 }
 
-export const AuditionStartModal = ({ opportunity, onClose, onStart }: AuditionStartModalProps) => {
+export const AuditionStartModal = ({ opportunity, onClose, onStart, isStarting = false }: AuditionStartModalProps) => {
   const [step, setStep] = useState(1);
 
   return (
@@ -140,6 +141,7 @@ export const AuditionStartModal = ({ opportunity, onClose, onStart }: AuditionSt
               onStart={onStart}
               onClose={onClose}
               onBack={() => setStep(1)}
+              isStarting={isStarting}
             />
           )}
         </CardContent>

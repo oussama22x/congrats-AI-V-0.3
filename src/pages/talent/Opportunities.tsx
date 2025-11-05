@@ -1,10 +1,15 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { OpportunityCard } from "@/components/OpportunityCard";
 import { AuditionStartModal } from "@/components/AuditionStartModal";
 import { AuditionQuestionScreen } from "@/components/AuditionQuestionScreen";
 import { AuditionCompleteScreen } from "@/components/AuditionCompleteScreen";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useToast } from "@/hooks/use-toast";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { GraduationCap, Sparkles } from "lucide-react";
 
 // Backend URL - now using environment variable
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -31,6 +36,7 @@ interface Opportunity {
 const Opportunities = () => {
   // Get current user
   const { currentUser } = useCurrentUser();
+  const navigate = useNavigate();
   
   // State for opportunities data
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
@@ -40,6 +46,9 @@ const Opportunities = () => {
   // State to track user's submissions (prevent duplicate applications)
   const [userSubmissions, setUserSubmissions] = useState<Set<string>>(new Set());
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
+  
+  // State for loading indicator when starting audition
+  const [isStarting, setIsStarting] = useState(false);
   
   // State for modal
   const [selectedOpportunity, setSelectedOpportunity] = useState<Opportunity | null>(null);
@@ -208,6 +217,7 @@ const Opportunities = () => {
     }
     
     try {
+      setIsStarting(true);
       console.log('🚀 Calling /api/audition/start endpoint...');
       console.log('👤 User ID:', currentUser.id);
       console.log('🎯 Opportunity ID:', selectedOpportunity.id);
@@ -265,6 +275,8 @@ const Opportunities = () => {
         cameraStream.getTracks().forEach(track => track.stop());
       }
       cameraStreamRef.current = null;
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -394,6 +406,54 @@ const Opportunities = () => {
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <h1 className="text-4xl font-bold tracking-tight mb-8">Available Auditions</h1>
         
+        {/* Demo Interview Card - Always Visible at Top */}
+        <div className="mb-8">
+          <Card className="border-2 border-primary/50 bg-gradient-to-br from-primary/5 to-primary/10 hover:shadow-lg transition-all">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+                    <GraduationCap className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-2xl flex items-center gap-2">
+                      Demo Interview
+                      <Badge variant="secondary" className="bg-primary/20 text-primary border-primary/30">
+                        <Sparkles className="h-3 w-3 mr-1" />
+                        Practice
+                      </Badge>
+                    </CardTitle>
+                    <CardDescription className="text-base mt-1">
+                      Try our interview platform with 3 sample questions
+                    </CardDescription>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    <span className="font-medium text-foreground">Perfect for first-timers!</span> Experience the audition process in a no-pressure environment.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="outline" className="text-xs">3 Questions</Badge>
+                    <Badge variant="outline" className="text-xs">~5 minutes</Badge>
+                    <Badge variant="outline" className="text-xs">No Submission</Badge>
+                  </div>
+                </div>
+                <Button 
+                  size="lg"
+                  onClick={() => navigate('/audition/demo')}
+                  className="whitespace-nowrap font-semibold"
+                >
+                  Start Demo
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+        
         {/* Loading State */}
         {isLoading && (
           <div className="flex items-center justify-center py-12">
@@ -449,6 +509,7 @@ const Opportunities = () => {
           opportunity={selectedOpportunity}
           onClose={handleCloseModal}
           onStart={handleBeginAudition}
+          isStarting={isStarting}
         />
       )}
     </div>

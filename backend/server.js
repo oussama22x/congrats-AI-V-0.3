@@ -216,6 +216,42 @@ app.get('/api/opportunities', async (req, res) => {
   }
 });
 
+// --- Demo Interview Endpoint: Return 3 Simple Test Questions ---
+app.get('/api/audition/demo', async (req, res) => {
+  try {
+    console.log('🎬 Returning demo interview questions');
+    
+    const demoQuestions = [
+      {
+        id: 'D1',
+        question_text: 'Tell us about yourself.',
+        time_limit_seconds: 90
+      },
+      {
+        id: 'D2',
+        question_text: 'Why are you interested in this opportunity?',
+        time_limit_seconds: 90
+      },
+      {
+        id: 'D3',
+        question_text: 'What are your greatest strengths?',
+        time_limit_seconds: 90
+      }
+    ];
+    
+    res.json({
+      success: true,
+      questions: demoQuestions
+    });
+  } catch (error) {
+    console.error('❌ Error in /api/audition/demo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch demo questions'
+    });
+  }
+});
+
 // --- Endpoint 2: Start Audition (Fetch Questions & Create Submission) ---
 app.post('/api/audition/start', async (req, res) => {
   try {
@@ -334,6 +370,25 @@ app.post('/api/audition/submit-answer', upload.single('audio_file'), async (req,
     console.log(`  └─ Opportunity: ${opportunityId}`);
     console.log(`  └─ Question: ${questionId}`);
     console.log(`  └─ Question Text: ${questionText}`);
+
+    // Check if this is a demo submission
+    const isDemoMode = opportunityId === 'demo' || userId === 'demo-user';
+    
+    if (isDemoMode) {
+      console.log('🎬 Demo mode detected - skipping database operations');
+      
+      // For demo, just return success without saving anything
+      return res.status(200).json({
+        success: true,
+        message: 'Demo answer received (not saved)',
+        data: {
+          answerId: 'demo-answer-' + Date.now(),
+          audioUrl: 'demo-url',
+          transcript: '[Demo mode - transcription skipped]',
+          questionId: questionId
+        }
+      });
+    }
 
     // Validate required fields
     if (!opportunityId || !userId || !questionId || !questionText) {
@@ -848,6 +903,7 @@ app.listen(PORT, () => {
   console.log(`✅ Backend server running on port ${PORT}`);
   console.log(`📡 Endpoints available:`);
   console.log(`   GET  /api/opportunities`);
+  console.log(`   GET  /api/audition/demo`);
   console.log(`   POST /api/audition/submit-answer`);
   console.log(`   POST /api/audition/create-submission`);
   console.log(`   POST /api/audition/submit-survey`);
