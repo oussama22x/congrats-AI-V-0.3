@@ -5,15 +5,7 @@ const express = require('express');
 const cors = require('cors');
 const multer = require('multer');
 const { createClient } = require('@supabase/supabase-js');
-const speech = require('@google-cloud/speech');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
-const fs = require('fs');
-
-// Initialize node-fetch for dynamic import
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-
-// Initialize Google API key for Speech-to-Text
-let googleApiKey = process.env.GOOGLE_API_KEY;
 
 // Initialize Gemini AI client
 let genAI = null;
@@ -21,30 +13,9 @@ if (process.env.GEMINI_API_KEY) {
   genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   console.log('✨ Gemini AI client initialized');
 } else {
-  console.warn('⚠️  GEMINI_API_KEY not found in .env file');
-  console.warn('   Gemini transcription will be disabled');
-}
-
-// Initialize Google Speech-to-Text client (optional)
-let speechClient = null;
-const googleCredPath = process.env.GOOGLE_APPLICATION_CREDENTIALS || './google-credentials.json';
-
-if (fs.existsSync(googleCredPath)) {
-  try {
-    speechClient = new speech.SpeechClient({
-      keyFilename: googleCredPath
-    });
-    console.log('🎤 Google Speech-to-Text client initialized');
-  } catch (error) {
-    console.warn('⚠️  Failed to initialize Google Speech-to-Text client:', error.message);
-    console.warn('   Transcription will be disabled');
-  }
-} else {
-  console.warn('⚠️  Google credentials file not found at:', googleCredPath);
-  console.warn('   Transcription will be disabled. To enable:');
-  console.warn('   1. Get credentials from Google Cloud Console');
-  console.warn('   2. Save as google-credentials.json in backend folder');
-  console.warn('   3. Or set GOOGLE_APPLICATION_CREDENTIALS env var');
+  console.error('❌ ERROR: GEMINI_API_KEY not found in .env file');
+  console.error('   Gemini transcription will not work without it.');
+  process.exit(1);
 }
 
 // Initialize Supabase client (shared instance)
@@ -410,75 +381,50 @@ app.post('/api/audition/submit-answer', upload.single('audio_file'), async (req,
 
     const audio_url = publicUrl; // Store for clarity
 
-    // --- Start Transcription with Google Speech-to-Text ---
-    let transcript = "[Transcription disabled - API key not configured]";
+    // --- 2. TRANSCRIBE AUDIO (New Gemini Buffer Method) ---
+    console.log("🎤 Starting transcription with Gemini (Buffer method)...");
+    let transcript = null; 
 
-    if (googleApiKey) {
-      console.log("🎤 Transcribing audio with Google Speech-to-Text...");
-      const file = req.file; // Get the file from the request
+    try {
+      // Use Gemini 2.0 Flash (latest stable model that supports audio)
+      const model = genAI.getGenerativeModel({ 
+        model: "gemini-2.0-flash"
+      });
 
-      try {
-        if (file.size > 10 * 1024 * 1024) {
-          throw new Error("Audio file exceeds 10MB limit");
+      // Convert the file buffer to the Base64 format Gemini needs
+      const base64Audio = req.file.buffer.toString("base64");
+      const audioPart = {
+        inlineData: {
+          data: base64Audio,
+          mimeType: req.file.mimetype // e.g., 'audio/webm'
         }
+      };
 
-        const audioBase64 = file.buffer.toString("base64");
+      const prompt = "Transcribe this audio file. Return only the spoken text, nothing else.";
+      const result = await model.generateContent([prompt, audioPart]);
+      const response = await result.response;
+      transcript = response.text();
+      console.log("✅ Transcription successful:", transcript.substring(0, 100) + "...");
 
-        let encoding = "MP3";
-        let sampleRateHertz = 48000;
-
-        if (file.mimetype.includes("webm")) {
-          encoding = "WEBM_OPUS";
-          sampleRateHertz = 48000;
-        } else if (file.mimetype.includes("wav")) {
-          encoding = "LINEAR16";
-          sampleRateHertz = 44100;
-        } else if (file.mimetype.includes("ogg")) {
-          encoding = "OGG_OPUS";
-          sampleRateHertz = 48000;
-        }
-
-        console.log(`🔧 Using encoding: ${encoding}, sample rate: ${sampleRateHertz}`);
-
-        const response = await fetch(
-          `https://speech.googleapis.com/v1/speech:recognize?key=${googleApiKey}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              config: {
-                encoding: encoding,
-                sampleRateHertz: sampleRateHertz,
-                audioChannelCount: 1,
-                languageCode: "en-US",
-                enableAutomaticPunctuation: true,
-                model: "default",
-                useEnhanced: true,
-              },
-              audio: { content: audioBase64 },
-            }),
-          }
-        );
-
-        const data = await response.json();
-        console.log("📝 Google API response:", JSON.stringify(data, null, 2));
-
-        if (data.error) {
-          throw new Error(data.error.message);
-        }
-
-        if (!data.results || data.results.length === 0) {
-          transcript = "[No speech detected in audio]";
-        } else {
-          transcript = data.results
-            .map((r) => r.alternatives[0].transcript)
-            .join(" ");
-          console.log(`✅ Transcription complete: "${transcript}"`);
-        }
-      } catch (transcriptionError) {
-        console.error("⚠️ Transcription failed:", transcriptionError);
-        transcript = `[Transcription failed: ${transcriptionError.message}]`;
+    } catch (transcriptionError) {
+      console.error("--- ❌ GEMINI TRANSCRIPTION FAILED ---");
+      console.error("Error details:", transcriptionError);
+      
+      // Log more specific error info
+      if (transcriptionError.status === 404) {
+        console.error("💡 404 Error - Model not found or not supported");
+        console.error("   Current model: gemini-2.0-flash");
+        console.error("   This model should support audio transcription");
+      } else if (transcriptionError.status === 403) {
+        console.error("💡 403 Error - API key may be invalid or region-blocked");
+      } else if (transcriptionError.status === 400) {
+        console.error("💡 400 Error - Audio format may not be supported");
+        console.error("   MIME type:", req.file.mimetype);
       }
+      
+      console.error(JSON.stringify(transcriptionError, null, 2));
+      console.error("--- END OF ERROR ---");
+      transcript = "[Transcription failed. See backend logs for details.]";
     }
     // --- End Transcription ---
 
