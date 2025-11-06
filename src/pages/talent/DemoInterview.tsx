@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { AuditionQuestionScreen } from "@/components/AuditionQuestionScreen";
 import { Card, CardContent } from "@/components/ui/card";
-import { Loader2, AlertCircle } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 
@@ -17,15 +17,23 @@ interface Question {
 
 export const DemoInterview = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   
   const [questions, setQuestions] = useState<Question[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [demoStarted, setDemoStarted] = useState(false);
+  const [showLoadingScreen, setShowLoadingScreen] = useState(false);
   
   // Camera stream state (for demo, we'll just pass null)
   const cameraStreamRef = useRef<MediaStream | null>(null);
+
+  // Get state from navigation (if coming from audition landing page)
+  const returnTo = location.state?.returnTo;
+  const opportunityId = location.state?.opportunityId;
+  const opportunityTitle = location.state?.opportunityTitle;
+  const opportunityCompany = location.state?.opportunityCompany;
 
   // Fetch demo questions
   useEffect(() => {
@@ -75,12 +83,32 @@ export const DemoInterview = () => {
 
   const handleDemoComplete = () => {
     console.log('✅ Demo interview completed');
-    toast({
-      title: "Demo Complete!",
-      description: "Great job! You can now try a real audition.",
-    });
-    // Navigate back to opportunities page
-    navigate('/opportunities');
+    
+    // Check if we should redirect to actual audition
+    if (returnTo === 'audition' && opportunityId) {
+      console.log('🎬 Starting actual audition after demo...');
+      setShowLoadingScreen(true);
+      
+      // Show loading screen for 5 seconds, then navigate to opportunities page
+      // The opportunities page will auto-open the audition modal
+      setTimeout(() => {
+        navigate('/opportunities', { 
+          state: { 
+            autoStartAudition: true,
+            opportunityId: opportunityId,
+            opportunityTitle: opportunityTitle,
+            opportunityCompany: opportunityCompany
+          } 
+        });
+      }, 5000);
+    } else {
+      // Regular demo completion - just go back to opportunities
+      toast({
+        title: "Demo Complete!",
+        description: "Great job! You can now try a real audition.",
+      });
+      navigate('/opportunities');
+    }
   };
 
   // If demo is in progress, show the question screen
@@ -94,6 +122,38 @@ export const DemoInterview = () => {
         cameraStream={cameraStreamRef.current}
         onComplete={handleDemoComplete}
       />
+    );
+  }
+
+  // Loading screen after demo completion (5 seconds)
+  if (showLoadingScreen) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+        <Card className="w-full max-w-2xl mx-4">
+          <CardContent className="flex flex-col items-center justify-center py-20 space-y-6">
+            <div className="relative">
+              <Loader2 className="h-20 w-20 animate-spin text-primary" />
+              <CheckCircle2 className="h-10 w-10 text-green-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
+            </div>
+            <div className="text-center space-y-3">
+              <h2 className="text-3xl font-bold">Demo Complete! 🎉</h2>
+              <p className="text-xl text-muted-foreground">
+                Preparing your audition for
+              </p>
+              <p className="text-2xl font-semibold text-primary">
+                {opportunityTitle}
+              </p>
+              <p className="text-lg text-muted-foreground">
+                at {opportunityCompany}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Starting your audition...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 

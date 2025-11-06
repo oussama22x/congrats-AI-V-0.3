@@ -11,11 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserCircle, FileText, MapPin, Briefcase, DollarSign, Lock, Download, Globe, Calendar, Linkedin, X, PencilLine, ClipboardList, Eye } from "lucide-react";
+import { UserCircle, FileText, MapPin, Briefcase, DollarSign, Lock, Download, Globe, Calendar, Linkedin, X, PencilLine, ClipboardList, Eye, GraduationCap, Sparkles, Search } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import { format } from "date-fns";
 import { VettingChallengeCard } from "@/components/vetting/VettingChallengeCard";
 import { VettingChallengeDrawer } from "@/components/vetting/VettingChallengeDrawer";
+import { OpportunityCard } from "@/components/OpportunityCard";
 
 // Backend URL - using environment variable
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
@@ -49,9 +50,17 @@ const TalentDashboard = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const isLoading = profileLoading || filesLoading || skillsLoading || progressLoading;
 
-  // State for submissions
+  // State for submissions (My Applications)
   const [submissions, setSubmissions] = useState([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(true);
+
+  // State for opportunities (Browse Opportunities)
+  const [opportunities, setOpportunities] = useState([]);
+  const [opportunitiesLoading, setOpportunitiesLoading] = useState(true);
+  const [opportunitiesError, setOpportunitiesError] = useState<string | null>(null);
+  
+  // State to track user's submissions (prevent duplicate applications)
+  const [userSubmissions, setUserSubmissions] = useState<Set<string>>(new Set());
 
   // Fetch submissions from backend
   useEffect(() => {
@@ -68,6 +77,12 @@ const TalentDashboard = () => {
           const data = await response.json();
           if (data.success) {
             setSubmissions(data.data);
+            
+            // Create a Set of opportunity IDs the user has already applied to
+            const appliedOpportunityIds = new Set<string>(
+              data.data.map((sub: any) => sub.opportunityId || sub.opportunity_id as string)
+            );
+            setUserSubmissions(appliedOpportunityIds);
           }
         }
       } catch (error) {
@@ -79,6 +94,42 @@ const TalentDashboard = () => {
 
     fetchSubmissions();
   }, [currentUser?.id]);
+
+  // Fetch opportunities from backend
+  useEffect(() => {
+    const fetchOpportunities = async () => {
+      try {
+        setOpportunitiesLoading(true);
+        const response = await fetch(`${BACKEND_URL}/api/opportunities`);
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch opportunities');
+        }
+        
+        const data = await response.json();
+        
+        // Transform questions from backend format to frontend format
+        const transformedData = data.map((opp: any) => ({
+          ...opp,
+          questions: (opp.questions || []).map((q: any, index: number) => ({
+            id: `q${index + 1}`,
+            text: q.question_text || q.text || q,
+            duration: q.time_limit_seconds || q.duration || 120,
+          })),
+        }));
+        
+        setOpportunities(transformedData);
+        setOpportunitiesError(null);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Failed to load opportunities';
+        setOpportunitiesError(errorMessage);
+      } finally {
+        setOpportunitiesLoading(false);
+      }
+    };
+
+    fetchOpportunities();
+  }, []);
 
   // Show celebration only once when reaching 100% AND completing vetting
   useEffect(() => {
@@ -179,10 +230,14 @@ const TalentDashboard = () => {
           </div>
 
           {/* Tabbed Interface */}
-          <Tabs defaultValue="vetting" className="w-full">
-            <TabsList className="grid w-full max-w-md grid-cols-2">
-              <TabsTrigger value="vetting">My Vetting</TabsTrigger>
+          <Tabs defaultValue="opportunities" className="w-full">
+            <TabsList className="grid w-full max-w-3xl grid-cols-3">
+              <TabsTrigger value="opportunities" className="gap-2">
+                <Search className="h-4 w-4" />
+                Browse Opportunities
+              </TabsTrigger>
               <TabsTrigger value="applications">
+                <ClipboardList className="h-4 w-4 mr-2" />
                 My Applications
                 {submissions.length > 0 && (
                   <Badge variant="secondary" className="ml-2">
@@ -190,12 +245,143 @@ const TalentDashboard = () => {
                   </Badge>
                 )}
               </TabsTrigger>
+              <TabsTrigger value="profile">
+                <UserCircle className="h-4 w-4 mr-2" />
+                My Profile
+              </TabsTrigger>
             </TabsList>
 
-            {/* Tab 1: My Vetting */}
-            <TabsContent value="vetting" className="space-y-8 mt-8">
+            {/* Tab 1: Browse Opportunities */}
+            <TabsContent value="opportunities" className="space-y-6 mt-8">
+              {/* Loading State */}
+              {opportunitiesLoading && (
+                <div className="flex items-center justify-center py-12">
+                  <h2 className="text-2xl text-muted-foreground">Loading opportunities...</h2>
+                </div>
+              )}
+              
+              {/* Error State */}
+              {opportunitiesError && !opportunitiesLoading && (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <h2 className="text-2xl text-destructive">Failed to load opportunities</h2>
+                  <p className="text-muted-foreground">{opportunitiesError}</p>
+                  <Button onClick={() => window.location.reload()}>
+                    Retry
+                  </Button>
+                </div>
+              )}
+              
+              {/* Opportunities Grid */}
+              {!opportunitiesLoading && !opportunitiesError && opportunities.length > 0 && (
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                  {opportunities.map((opportunity: any) => (
+                    <OpportunityCard
+                      key={opportunity.id}
+                      opportunityId={opportunity.id}
+                      title={opportunity.title}
+                      company={opportunity.company}
+                      location={opportunity.location}
+                      type={opportunity.type}
+                      rate={opportunity.rate}
+                      skills={opportunity.skills}
+                      hasApplied={userSubmissions.has(opportunity.id)}
+                      isCheckingStatus={submissionsLoading}
+                    />
+                  ))}
+                </div>
+              )}
+              
+              {/* Empty State */}
+              {!opportunitiesLoading && !opportunitiesError && opportunities.length === 0 && (
+                <div className="flex items-center justify-center py-12">
+                  <h2 className="text-2xl text-muted-foreground">No opportunities available at the moment</h2>
+                </div>
+              )}
+            </TabsContent>
 
-          {/* Profile Completion Card - Only show when wizard steps incomplete */}
+            {/* Tab 2: My Applications */}
+            <TabsContent value="applications" className="space-y-8 mt-8">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5" />
+                    My Audition Applications
+                  </CardTitle>
+                  <CardDescription>
+                    Track your submitted auditions and their review status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {submissionsLoading ? (
+                    <div className="text-center py-12">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+                      <p className="text-sm text-muted-foreground">Loading your applications...</p>
+                    </div>
+                  ) : submissions.length === 0 ? (
+                    <div className="text-center py-12">
+                      <ClipboardList className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
+                      <h3 className="text-lg font-semibold mb-2">No Applications Yet</h3>
+                      <p className="text-sm text-muted-foreground mb-6">
+                        You haven't submitted any auditions yet. Start exploring opportunities!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {submissions.map((submission: any) => (
+                        <Card key={submission.id} className="border-2 hover:border-primary/50 transition-colors">
+                          <CardContent className="pt-6">
+                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-start justify-between mb-2">
+                                  <div>
+                                    <h4 className="text-lg font-semibold">{submission.title}</h4>
+                                    <p className="text-sm text-muted-foreground">{submission.company}</p>
+                                  </div>
+                                </div>
+                                <div className="flex flex-wrap gap-2 mt-3">
+                                  <Badge variant="outline" className="gap-1">
+                                    <MapPin className="h-3 w-3" />
+                                    {submission.location}
+                                  </Badge>
+                                  <Badge variant="outline" className="gap-1">
+                                    <Briefcase className="h-3 w-3" />
+                                    {submission.type}
+                                  </Badge>
+                                  <Badge variant="outline" className="gap-1">
+                                    <DollarSign className="h-3 w-3" />
+                                    {submission.rate}
+                                  </Badge>
+                                </div>
+                              </div>
+                              <div className="flex flex-col items-end gap-3">
+                                <Badge 
+                                  variant="secondary" 
+                                  className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400"
+                                >
+                                  {submission.status.split('_').map((word: string) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                                </Badge>
+                                <p className="text-xs text-muted-foreground">
+                                  Submitted {format(new Date(submission.submittedAt), "MMM d, yyyy")}
+                                </p>
+                                <Link to={`/applications/${submission.id}`}>
+                                  <Button variant="outline" size="sm" className="gap-2">
+                                    <Eye className="h-4 w-4" />
+                                    Review Answers
+                                  </Button>
+                                </Link>
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tab 3: My Profile */}
+            <TabsContent value="profile" className="space-y-8 mt-8">
           {isLoading && incompleteSteps.length > 0 ? (
             <Card className="border-primary bg-primary/5">
               <CardHeader>
@@ -496,90 +682,6 @@ const TalentDashboard = () => {
               </div>
             </CardContent>
           </Card>
-            </TabsContent>
-
-            {/* Tab 2: My Applications */}
-            <TabsContent value="applications" className="space-y-8 mt-8">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <ClipboardList className="h-5 w-5" />
-                    My Audition Applications
-                  </CardTitle>
-                  <CardDescription>
-                    Track your submitted auditions and their review status
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {submissionsLoading ? (
-                    <div className="text-center py-12">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-                      <p className="text-sm text-muted-foreground">Loading your applications...</p>
-                    </div>
-                  ) : submissions.length === 0 ? (
-                    <div className="text-center py-12">
-                      <ClipboardList className="h-16 w-16 text-muted-foreground mx-auto mb-4 opacity-50" />
-                      <h3 className="text-lg font-semibold mb-2">No Applications Yet</h3>
-                      <p className="text-sm text-muted-foreground mb-6">
-                        You haven't submitted any auditions yet. Start exploring opportunities!
-                      </p>
-                      <Button onClick={() => navigate("/opportunities")}>
-                        Browse Opportunities
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {submissions.map((submission) => (
-                        <Card key={submission.id} className="border-2 hover:border-primary/50 transition-colors">
-                          <CardContent className="pt-6">
-                            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                              <div className="flex-1">
-                                <div className="flex items-start justify-between mb-2">
-                                  <div>
-                                    <h4 className="text-lg font-semibold">{submission.title}</h4>
-                                    <p className="text-sm text-muted-foreground">{submission.company}</p>
-                                  </div>
-                                </div>
-                                <div className="flex flex-wrap gap-2 mt-3">
-                                  <Badge variant="outline" className="gap-1">
-                                    <MapPin className="h-3 w-3" />
-                                    {submission.location}
-                                  </Badge>
-                                  <Badge variant="outline" className="gap-1">
-                                    <Briefcase className="h-3 w-3" />
-                                    {submission.type}
-                                  </Badge>
-                                  <Badge variant="outline" className="gap-1">
-                                    <DollarSign className="h-3 w-3" />
-                                    {submission.rate}
-                                  </Badge>
-                                </div>
-                              </div>
-                              <div className="flex flex-col items-end gap-3">
-                                <Badge 
-                                  variant="secondary" 
-                                  className="bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400"
-                                >
-                                  {submission.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                </Badge>
-                                <p className="text-xs text-muted-foreground">
-                                  Submitted {format(new Date(submission.submittedAt), "MMM d, yyyy")}
-                                </p>
-                                <Link to={`/applications/${submission.id}`}>
-                                  <Button variant="outline" size="sm" className="gap-2">
-                                    <Eye className="h-4 w-4" />
-                                    Review Answers
-                                  </Button>
-                                </Link>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
         </motion.div>

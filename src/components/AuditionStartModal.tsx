@@ -119,6 +119,21 @@ export const AuditionStartModal = ({ opportunity, onClose, onStart, isStarting =
             </div>
           </div>
 
+          {/* Demo Disclaimer */}
+          <div className="rounded-lg border border-yellow-400 bg-yellow-50 dark:bg-yellow-950/20 p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-yellow-600 dark:text-yellow-500 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <h4 className="text-sm font-semibold text-yellow-800 dark:text-yellow-400">
+                  Recommendation: Complete the Demo Test First
+                </h4>
+                <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                  We highly recommend you complete the 3-question "Demo Interview" first to ensure your system is working correctly. You can find the Demo Test on the main opportunities page.
+                </p>
+              </div>
+            </div>
+          </div>
+
           {/* Start Button */}
           <div className="pt-4">
             <Button 

@@ -37,7 +37,8 @@ export const AuditionQuestionScreen = ({
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [isOvertime, setIsOvertime] = useState(false); // NEW: Overtime warning state
-  const [shouldAutoUpload, setShouldAutoUpload] = useState(false); // NEW: Flag to trigger auto-upload
+  const [isRecording, setIsRecording] = useState(false); // Track recording state
+  const [hasRecorded, setHasRecorded] = useState(false); // Track if recording is finished
   const { toast } = useToast();
   
   // Audio recording hook
@@ -96,40 +97,32 @@ export const AuditionQuestionScreen = ({
     }
   }, [currentTimeInSeconds, isOvertime]);
 
-  // Reset overtime flag and timer when question changes + AUTO-START RECORDING
+  // Reset overtime flag and timer when question changes + AUTO-START
   useEffect(() => {
-    console.log(`🔄 Question changed to ${currentQuestionIndex + 1}, resetting overtime state`);
+    console.log(`🔄 Question changed to ${currentQuestionIndex + 1}, resetting state`);
     setIsOvertime(false);
-    setShouldAutoUpload(false); // Reset auto-upload flag
-    resetQuestionTimer();
+    setHasRecorded(false); // Reset recorded flag for new question
+    resetRecording();
     
-    // Auto-start recording when question appears
-    console.log('🎤 Auto-starting recording for new question...');
+    // AUTO-START: Start recording and timer immediately
+    console.log('🎤 Auto-starting recording and timer for new question...');
     startRecording();
     startQuestionTimer();
+    setIsRecording(true);
   }, [currentQuestionIndex]);
-
-  // NEW: Auto-upload when recording is complete and shouldAutoUpload is true
-  useEffect(() => {
-    if (shouldAutoUpload && recordingStatus === "recorded" && audioBlob) {
-      console.log('✅ Recording complete, triggering auto-upload...');
-      setShouldAutoUpload(false); // Reset flag
-      handleUploadAndAdvance();
-    }
-  }, [shouldAutoUpload, recordingStatus, audioBlob]);
 
   // Auto-advance when question timer expires
   useEffect(() => {
     if (isQuestionTimeUp && !isUploading) {
       console.log('⏰ Time is up! Automatically submitting and advancing...');
       
-      // If currently recording, stop and upload automatically
-      if (recordingStatus === "recording") {
-        console.log('📹 Still recording, stopping and uploading...');
-        handleStopAndUpload();
+      // If currently recording, stop recording
+      if (isRecording) {
+        console.log('📹 Still recording, stopping...');
+        handleStopRecording();
       }
       // If user already stopped recording, upload the answer
-      else if (audioBlob) {
+      else if (audioBlob && hasRecorded) {
         console.log('✅ Recording available, uploading answer...');
         handleUploadAndAdvance();
       }
@@ -149,7 +142,7 @@ export const AuditionQuestionScreen = ({
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isQuestionTimeUp, recordingStatus]);
+  }, [isQuestionTimeUp, isRecording]);
 
   // Master clock expired - navigate to survey
   useEffect(() => {
@@ -171,21 +164,19 @@ export const AuditionQuestionScreen = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Handle stopping the recording and automatically upload
-  const handleStopAndUpload = () => {
-    console.log('🛑 Stop button clicked - stopping recording and preparing for automatic upload...');
+  // Handle stopping the recording (does NOT upload)
+  const handleStopRecording = () => {
+    console.log('🛑 Stop button clicked - stopping recording');
     
-    // Stop the timer immediately
+    // Stop the timer
     stopQuestionTimer();
     
-    // Immediately set uploading state to show loading UI
-    setIsUploading(true);
-    
-    // Set flag to trigger auto-upload when recording is complete
-    setShouldAutoUpload(true);
-    
-    // Stop recording - this will trigger the onstop event which sets audioBlob and changes status to "recorded"
+    // Stop recording
     stopRecording();
+    
+    // Update states
+    setIsRecording(false);
+    setHasRecorded(true);
   };
 
   // Read question aloud using browser's Speech Synthesis API
@@ -372,7 +363,7 @@ export const AuditionQuestionScreen = ({
             {/* Per-Question Timer - Countdown with Overtime Glow */}
             <div className="flex justify-center">
               <div className={`rounded-lg px-8 py-4 ${
-                recordingStatus === "recording" 
+                isRecording 
                   ? "bg-primary/10 border border-primary/20" 
                   : "bg-muted"
               }`}>
@@ -382,7 +373,7 @@ export const AuditionQuestionScreen = ({
                   {questionTimer}
                 </p>
                 <p className="text-xs text-muted-foreground text-center mt-1">
-                  {recordingStatus === "recording" ? "Time Remaining" : "Question Time"}
+                  {isRecording ? "Time Remaining" : "Question Time"}
                 </p>
               </div>
             </div>
@@ -390,66 +381,52 @@ export const AuditionQuestionScreen = ({
             {/* Recording Controls */}
             <div className="space-y-4">
               {/* Red Stop Button - Only visible when recording and NOT uploading */}
-              {recordingStatus === "recording" && !isUploading && (
+              {isRecording && !isUploading && (
                 <>
                   <div className="flex justify-center">
                     <Button
                       size="lg"
                       variant="destructive"
                       className="h-24 w-24 rounded-full animate-pulse"
-                      onClick={handleStopAndUpload}
-                      disabled={isUploading}
+                      onClick={handleStopRecording}
                     >
                       <Square className="h-12 w-12 fill-current" />
                     </Button>
                   </div>
                   <p className="text-center text-sm text-muted-foreground">
-                    Recording in progress... Click to stop and submit
+                    Recording in progress... Click to stop
                   </p>
                 </>
+              )}
+
+              {/* "Move to Next Question" Button - Always visible, disabled until hasRecorded */}
+              <div className="flex justify-center pt-4">
+                <Button
+                  size="lg"
+                  className="h-16 px-8 text-lg font-semibold bg-primary hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleUploadAndAdvance}
+                  disabled={!hasRecorded || isUploading}
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    "Move to Next Question"
+                  )}
+                </Button>
+              </div>
+              {!hasRecorded && !isUploading && (
+                <p className="text-center text-xs text-muted-foreground">
+                  Complete your recording to enable
+                </p>
               )}
             </div>
 
             {/* Loading and Helper Text Section */}
             <div className="pt-4">
-
-              {/* Loading state during upload */}
-              {isUploading && (
-                <>
-                  <div className="mb-4 p-4 bg-primary/10 border border-primary/20 rounded-lg">
-                    <div className="flex items-center justify-center gap-3 mb-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
-                      <span className="font-semibold text-primary">Uploading your answer...</span>
-                    </div>
-                    <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
-                      <div className="h-full bg-primary rounded-full animate-pulse" style={{ width: '70%' }} />
-                    </div>
-                    <p className="text-xs text-center text-muted-foreground mt-2">
-                      Moving to next question...
-                    </p>
-                  </div>
-                  <Button
-                    size="lg"
-                    className="w-full h-14 text-lg font-semibold"
-                    disabled={true}
-                  >
-                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                    Uploading... Please wait...
-                  </Button>
-                </>
-              )}
-
               {/* Helper text */}
-              {!isUploading && recordingStatus === "recording" && (
-                <p className="text-xs text-muted-foreground text-center mt-3">
-                  {currentQuestionIndex < questions.length - 1
-                    ? `${questions.length - currentQuestionIndex - 1} question${
-                        questions.length - currentQuestionIndex - 1 !== 1 ? "s" : ""
-                      } remaining`
-                    : "This is your final question"}
-                </p>
-              )}
-              
               {!isUploading && (
                 <p className="text-xs text-amber-600 dark:text-amber-400 text-center mt-2 font-medium">
                   ⚠️ You cannot pause. You can only stop and move on to the next question.

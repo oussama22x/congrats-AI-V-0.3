@@ -14,6 +14,7 @@ import ProfileEditor from "./pages/talent/ProfileEditor";
 import Opportunities from "./pages/talent/Opportunities";
 import DemoInterview from "./pages/talent/DemoInterview";
 import SubmissionDetailPage from "./pages/talent/SubmissionDetailPage";
+import AuditionLandingPage from "./pages/talent/AuditionLandingPage";
 import RecruiterDashboard from "./pages/recruiter/RecruiterDashboard";
 import PartnerDashboard from "./pages/partner/PartnerDashboard";
 import NotFound from "./pages/NotFound";
@@ -70,6 +71,14 @@ const App = () => (
             element={
               <RoleGuard allowedRoles={["TALENT"]}>
                 <DemoInterview />
+              </RoleGuard>
+            }
+          />
+          <Route
+            path="/audition/:opportunityId/start"
+            element={
+              <RoleGuard allowedRoles={["TALENT"]}>
+                <AuditionLandingPage />
               </RoleGuard>
             }
           />

@@ -2,8 +2,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MapPin, Briefcase, DollarSign, CheckCircle2, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 interface OpportunityCardProps {
+  opportunityId: string;
   title: string;
   company: string;
   location: string;
@@ -12,10 +14,10 @@ interface OpportunityCardProps {
   skills: string[];
   hasApplied?: boolean;
   isCheckingStatus?: boolean;
-  onStartAudition: () => void;
 }
 
 export const OpportunityCard = ({ 
+  opportunityId,
   title, 
   company, 
   location, 
@@ -24,7 +26,6 @@ export const OpportunityCard = ({
   skills,
   hasApplied = false,
   isCheckingStatus = false,
-  onStartAudition
 }: OpportunityCardProps) => {
   // Determine if button should be completely disabled
   const isDisabled = isCheckingStatus || hasApplied;
@@ -92,13 +93,14 @@ export const OpportunityCard = ({
               Checking Status...
             </Button>
           ) : (
-            <Button 
-              className="w-full mt-auto" 
-              onClick={onStartAudition}
-              disabled={isDisabled}
-            >
-              Start Audition
-            </Button>
+            <Link to={`/audition/${opportunityId}/start`} className="block">
+              <Button 
+                className="w-full mt-auto" 
+                disabled={isDisabled}
+              >
+                Start Audition
+              </Button>
+            </Link>
           )}
         </div>
       </CardContent>
