@@ -38,6 +38,10 @@ const Opportunities = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
+  // Get URL params for auto-start
+  const searchParams = new URLSearchParams(location.search);
+  const autoStartOpportunityId = searchParams.get('autoStart');
+  
   // State for opportunities data
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -144,29 +148,26 @@ const Opportunities = () => {
 
   // Auto-start audition after demo completion
   useEffect(() => {
-    const autoStartAudition = location.state?.autoStartAudition;
-    const opportunityId = location.state?.autoStartOpportunityId || location.state?.opportunityId;
+    console.log('🔍 Checking auto-start:', { autoStartOpportunityId, opportunitiesLoaded: opportunities.length, isLoading });
     
-    console.log('🔍 Checking auto-start:', { autoStartAudition, opportunityId, opportunitiesLoaded: opportunities.length, isLoading });
-    
-    if (autoStartAudition && opportunityId && opportunities.length > 0 && !isLoading) {
-      console.log('🎬 Auto-starting audition for opportunity:', opportunityId);
+    if (autoStartOpportunityId && opportunities.length > 0 && !isLoading) {
+      console.log('🎬 Auto-starting audition for opportunity:', autoStartOpportunityId);
       
       // Find the opportunity
-      const opportunity = opportunities.find(opp => opp.id === opportunityId);
+      const opportunity = opportunities.find(opp => opp.id === autoStartOpportunityId);
       
       if (opportunity) {
         console.log('✅ Found opportunity, starting audition:', opportunity.title);
-        // Clear the state to prevent re-triggering
-        window.history.replaceState({}, document.title);
+        // Clear the URL param to prevent re-triggering
+        navigate('/opportunities', { replace: true });
         
         // Start the audition
         handleStartAudition(opportunity);
       } else {
-        console.log('❌ Opportunity not found:', opportunityId);
+        console.log('❌ Opportunity not found:', autoStartOpportunityId);
       }
     }
-  }, [location.state, opportunities, isLoading]);
+  }, [autoStartOpportunityId, opportunities, isLoading, navigate]);
 
   // Cleanup camera stream on unmount
   useEffect(() => {

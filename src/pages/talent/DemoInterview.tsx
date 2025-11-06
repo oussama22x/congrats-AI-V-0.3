@@ -95,16 +95,10 @@ export const DemoInterview = () => {
       console.log('🎬 Setting showLoadingScreen to TRUE');
       setShowLoadingScreen(true);
       
-      // Show loading screen for 5 seconds, then navigate back to audition landing page
+      // Show loading screen for 5 seconds, then navigate directly to opportunities with auto-start
       setTimeout(() => {
         console.log('⏰ 5 seconds passed, navigating now...');
-        navigate(`/audition/${opportunityId}/start`, { 
-          state: { 
-            autoStartAudition: true,
-            opportunityTitle: opportunityTitle,
-            opportunityCompany: opportunityCompany
-          } 
-        });
+        navigate(`/opportunities?autoStart=${opportunityId}`);
       }, 5000);
     } else {
       console.log('❌ NOT going to audition - returnTo:', returnTo, 'opportunityId:', opportunityId);
