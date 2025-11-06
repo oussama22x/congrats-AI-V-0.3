@@ -83,25 +83,31 @@ export const DemoInterview = () => {
 
   const handleDemoComplete = () => {
     console.log('✅ Demo interview completed');
+    console.log('🔍 returnTo:', returnTo);
+    console.log('🔍 opportunityId:', opportunityId);
+    
+    // IMPORTANT: Set demoStarted to false so we can show the loading screen
+    setDemoStarted(false);
     
     // Check if we should redirect to actual audition
     if (returnTo === 'audition' && opportunityId) {
       console.log('🎬 Starting actual audition after demo...');
+      console.log('🎬 Setting showLoadingScreen to TRUE');
       setShowLoadingScreen(true);
       
-      // Show loading screen for 5 seconds, then navigate to opportunities page
-      // The opportunities page will auto-open the audition modal
+      // Show loading screen for 5 seconds, then navigate back to audition landing page
       setTimeout(() => {
-        navigate('/opportunities', { 
+        console.log('⏰ 5 seconds passed, navigating now...');
+        navigate(`/audition/${opportunityId}/start`, { 
           state: { 
             autoStartAudition: true,
-            opportunityId: opportunityId,
             opportunityTitle: opportunityTitle,
             opportunityCompany: opportunityCompany
           } 
         });
       }, 5000);
     } else {
+      console.log('❌ NOT going to audition - returnTo:', returnTo, 'opportunityId:', opportunityId);
       // Regular demo completion - just go back to opportunities
       toast({
         title: "Demo Complete!",
@@ -126,33 +132,45 @@ export const DemoInterview = () => {
   }
 
   // Loading screen after demo completion (5 seconds)
+  console.log('🎬 Render check - showLoadingScreen:', showLoadingScreen);
   if (showLoadingScreen) {
+    console.log('🎬🎬🎬 RENDERING LOADING SCREEN NOW!!!');
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-        <Card className="w-full max-w-2xl mx-4">
-          <CardContent className="flex flex-col items-center justify-center py-20 space-y-6">
-            <div className="relative">
-              <Loader2 className="h-20 w-20 animate-spin text-primary" />
-              <CheckCircle2 className="h-10 w-10 text-green-500 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" />
-            </div>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+        <Card className="w-full max-w-xl mx-4 border-2">
+          <CardContent className="flex flex-col items-center justify-center py-16 space-y-6">
+            {/* Simple Spinner */}
+            <Loader2 className="h-16 w-16 animate-spin text-primary" />
+
+            {/* Message */}
             <div className="text-center space-y-3">
-              <h2 className="text-3xl font-bold">Demo Complete! 🎉</h2>
-              <p className="text-xl text-muted-foreground">
-                Preparing your audition for
-              </p>
-              <p className="text-2xl font-semibold text-primary">
-                {opportunityTitle}
-              </p>
-              <p className="text-lg text-muted-foreground">
-                at {opportunityCompany}
+              <h2 className="text-2xl font-semibold">Loading Your Audition</h2>
+              <p className="text-muted-foreground">
+                Preparing questions for {opportunityTitle}
               </p>
             </div>
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Starting your audition...</span>
+
+            {/* Simple Progress Bar */}
+            <div className="w-full max-w-sm">
+              <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary rounded-full" 
+                  style={{ 
+                    animation: 'progress 5s linear forwards',
+                    width: '0%'
+                  }}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        <style>{`
+          @keyframes progress {
+            from { width: 0%; }
+            to { width: 100%; }
+          }
+        `}</style>
       </div>
     );
   }

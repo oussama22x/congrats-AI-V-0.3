@@ -145,7 +145,9 @@ const Opportunities = () => {
   // Auto-start audition after demo completion
   useEffect(() => {
     const autoStartAudition = location.state?.autoStartAudition;
-    const opportunityId = location.state?.opportunityId;
+    const opportunityId = location.state?.autoStartOpportunityId || location.state?.opportunityId;
+    
+    console.log('🔍 Checking auto-start:', { autoStartAudition, opportunityId, opportunitiesLoaded: opportunities.length, isLoading });
     
     if (autoStartAudition && opportunityId && opportunities.length > 0 && !isLoading) {
       console.log('🎬 Auto-starting audition for opportunity:', opportunityId);
@@ -154,11 +156,14 @@ const Opportunities = () => {
       const opportunity = opportunities.find(opp => opp.id === opportunityId);
       
       if (opportunity) {
+        console.log('✅ Found opportunity, starting audition:', opportunity.title);
         // Clear the state to prevent re-triggering
         window.history.replaceState({}, document.title);
         
         // Start the audition
         handleStartAudition(opportunity);
+      } else {
+        console.log('❌ Opportunity not found:', opportunityId);
       }
     }
   }, [location.state, opportunities, isLoading]);

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,10 +18,24 @@ interface OpportunityData {
 export const AuditionLandingPage = () => {
   const { opportunityId } = useParams<{ opportunityId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [opportunity, setOpportunity] = useState<OpportunityData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isLoadingRealAudition, setIsLoadingRealAudition] = useState(false);
+  
+  // Check if we're coming from demo completion
+  const autoStartAudition = (location.state as any)?.autoStartAudition || false;
+  const fromDemoTitle = (location.state as any)?.opportunityTitle;
+  const fromDemoCompany = (location.state as any)?.opportunityCompany;
+
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 AuditionLandingPage - location.state:', location.state);
+    console.log('🔍 autoStartAudition:', autoStartAudition);
+    console.log('🔍 isLoadingRealAudition:', isLoadingRealAudition);
+  }, [location.state, autoStartAudition, isLoadingRealAudition]);
 
   useEffect(() => {
     const fetchOpportunity = async () => {
@@ -66,6 +80,73 @@ export const AuditionLandingPage = () => {
 
     fetchOpportunity();
   }, [opportunityId]);
+
+  // Handle starting the real audition
+  const handleStartRealAudition = () => {
+    console.log('🎬🎬🎬 handleStartRealAudition CALLED!');
+    console.log('Setting isLoadingRealAudition to TRUE');
+    setIsLoadingRealAudition(true);
+
+    // Show loading for 3 seconds, then navigate to opportunities with auto-start flag
+    setTimeout(() => {
+      console.log('✅ Audition loaded, navigating...');
+      navigate('/opportunities', {
+        state: {
+          autoStartOpportunityId: opportunityId,
+          autoStartAudition: true
+        }
+      });
+    }, 3000);
+  };
+
+  // Loading screen for real audition transition
+  console.log('🎬 Render check - isLoadingRealAudition:', isLoadingRealAudition);
+  if (isLoadingRealAudition) {
+    console.log('🎬 RENDERING LOADING SCREEN - isLoadingRealAudition is TRUE');
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background">
+        <Card className="w-full max-w-2xl mx-4">
+          <CardContent className="flex flex-col items-center justify-center py-20 space-y-8">
+            {/* Animated Spinner */}
+            <div className="relative">
+              <div className="absolute inset-0 animate-ping">
+                <div className="h-24 w-24 rounded-full bg-primary/30"></div>
+              </div>
+              <Loader2 className="h-24 w-24 animate-spin text-primary relative" />
+            </div>
+
+            {/* Loading Message */}
+            <div className="text-center space-y-4">
+              <h2 className="text-3xl font-bold">Loading Your Audition...</h2>
+              <p className="text-xl text-muted-foreground">
+                Please wait
+              </p>
+            </div>
+
+            {/* Animated Progress Bar */}
+            <div className="w-full max-w-md space-y-3">
+              <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-primary rounded-full animate-[loading_3s_ease-in-out]" 
+                  style={{ animation: 'loading 3s ease-in-out forwards' }}
+                />
+              </div>
+              <p className="text-sm text-center text-muted-foreground">
+                Preparing your questions...
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <style>{`
+          @keyframes loading {
+            from { width: 0%; }
+            to { width: 100%; }
+          }
+        `}</style>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -238,25 +319,55 @@ export const AuditionLandingPage = () => {
               </div>
             </div>
 
-            {/* Start Button */}
+            {/* Start Button Section */}
             <div className="pt-6 space-y-4">
-              <Button 
-                size="lg" 
-                className="w-full text-xl h-16 font-bold"
-                onClick={() => {
-                  // Navigate to demo with the opportunity ID in state
-                  navigate('/audition/demo', { 
-                    state: { 
-                      returnTo: 'audition',
-                      opportunityId: opportunityId,
-                      opportunityTitle: opportunity.title,
-                      opportunityCompany: opportunity.company
-                    } 
-                  });
-                }}
-              >
-                Start System Check & Demo
-              </Button>
+              {autoStartAudition ? (
+                // Coming from demo - show success message and different button
+                <>
+                  <div className="rounded-lg border border-green-500 bg-green-50 dark:bg-green-950/20 p-4 mb-4">
+                    <div className="flex items-start gap-3">
+                      <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-500 mt-0.5 shrink-0" />
+                      <div className="space-y-1">
+                        <h4 className="text-base font-semibold text-green-800 dark:text-green-400">
+                          Demo Complete! System Check Passed ✓
+                        </h4>
+                        <p className="text-sm text-green-700 dark:text-green-300">
+                          Your microphone is working perfectly. You're ready to start the real audition.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  <Button 
+                    size="lg" 
+                    className="w-full text-xl h-16 font-bold bg-green-600 hover:bg-green-700"
+                    onClick={() => {
+                      console.log('🔴 GREEN BUTTON CLICKED!!!');
+                      handleStartRealAudition();
+                    }}
+                  >
+                    Start Real Audition Now
+                  </Button>
+                </>
+              ) : (
+                // Normal flow - show demo button
+                <Button 
+                  size="lg" 
+                  className="w-full text-xl h-16 font-bold"
+                  onClick={() => {
+                    // Navigate to demo with the opportunity ID in state
+                    navigate('/audition/demo', { 
+                      state: { 
+                        returnTo: 'audition',
+                        opportunityId: opportunityId,
+                        opportunityTitle: opportunity.title,
+                        opportunityCompany: opportunity.company
+                      } 
+                    });
+                  }}
+                >
+                  Start System Check & Demo
+                </Button>
+              )}
               <p className="text-sm text-muted-foreground text-center">
                 By continuing, you agree to the audition terms and conditions
               </p>
