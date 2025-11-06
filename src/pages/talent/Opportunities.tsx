@@ -182,6 +182,11 @@ const Opportunities = () => {
 
   // Handler functions
   const handleStartAudition = (opportunity: Opportunity) => {
+    console.log('🎯 handleStartAudition called for:', opportunity.id, opportunity.title);
+    console.log('🎯 submissionsLoading:', submissionsLoading);
+    console.log('🎯 userSubmissions:', Array.from(userSubmissions));
+    console.log('🎯 Has already applied?', userSubmissions.has(opportunity.id));
+    
     // Wait until submissions are loaded before allowing start
     if (submissionsLoading) {
       console.log("⚠️ Still checking submission status, please wait...");
@@ -204,6 +209,7 @@ const Opportunities = () => {
       return;
     }
     
+    console.log('✅ All checks passed, opening modal for:', opportunity.title);
     setSelectedOpportunity(opportunity);
   };
 
