@@ -42,6 +42,12 @@ const Opportunities = () => {
   const searchParams = new URLSearchParams(location.search);
   const autoStartOpportunityId = searchParams.get('autoStart');
   
+  console.log('🌐 ========== OPPORTUNITIES PAGE LOADED ==========');
+  console.log('🌐 URL location.search:', location.search);
+  console.log('🌐 URL pathname:', location.pathname);
+  console.log('🌐 autoStartOpportunityId from URL:', autoStartOpportunityId);
+  console.log('🌐 Full location:', location);
+  
   // State for opportunities data
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
   const [isLoading, setIsLoading] = useState(true);
