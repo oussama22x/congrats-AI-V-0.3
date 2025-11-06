@@ -154,9 +154,10 @@ const Opportunities = () => {
 
   // Auto-start audition after demo completion
   useEffect(() => {
-    console.log('🔍 Checking auto-start:', { autoStartOpportunityId, opportunitiesLoaded: opportunities.length, isLoading });
+    console.log('🔍 Checking auto-start:', { autoStartOpportunityId, opportunitiesLoaded: opportunities.length, isLoading, submissionsLoading });
     
-    if (autoStartOpportunityId && opportunities.length > 0 && !isLoading) {
+    // Wait for everything to be loaded before auto-starting
+    if (autoStartOpportunityId && opportunities.length > 0 && !isLoading && !submissionsLoading) {
       console.log('🎬 Auto-starting audition for opportunity:', autoStartOpportunityId);
       
       // Find the opportunity
@@ -173,7 +174,7 @@ const Opportunities = () => {
         console.log('❌ Opportunity not found:', autoStartOpportunityId);
       }
     }
-  }, [autoStartOpportunityId, opportunities, isLoading, navigate]);
+  }, [autoStartOpportunityId, opportunities, isLoading, submissionsLoading, navigate]);
 
   // Cleanup camera stream on unmount
   useEffect(() => {
